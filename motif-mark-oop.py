@@ -4,9 +4,9 @@ import argparse
 import cairo
 
 def get_args():
-    parser = argparse.ArgumentParser(description="Demultiplexing of dual matched indexes")
-    parser.add_argument('-f', type = str, help = 'input fasta file', default = 'motif_mark/Figure_1.fasta')
-    parser.add_argument('-m', type = str, help = 'input motifs file', default = 'motif_mark/Fig_1_motifs.txt')
+    parser = argparse.ArgumentParser(description="Motif Marking Visualization")
+    parser.add_argument('-f', type=str, help='Input FASTA file', default='/Users/carlyhamilton/bioinfo/Bi625/motif_mark/Figure_1.fasta')
+    parser.add_argument('-m', type=str, help='Input motifs file', default='/Users/carlyhamilton/bioinfo/Bi625/motif_mark/Fig_1_motifs.txt')
     return parser.parse_args()
 args = get_args()
 
@@ -122,76 +122,69 @@ class RegionOfInterest(InputFastaFile, InputMotifsFile):
 
 
 class Drawing(RegionOfInterest):
+    def __init__(self, fasta_file, motif_file):
+        super().__init__(fasta_file, motif_file)
 
     def draw_visualization(self, output_file):
-            """Uses PyCairo to draw motifs on sequences and save as PNG."""
-            width, height = 1000, (len(self.sequences) * 100) + 100
-            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
-            ctx = cairo.Context(surface)
-            
-            ctx.set_font_size(16)
-            y_offset = 50
+        """Uses PyCairo to draw motifs on sequences and save as PNG."""
+        width, height = 1000, (len(self.sequence) * 100) + 100
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        ctx = cairo.Context(surface)
+        
+        ctx.set_font_size(16)
+        y_offset = 50
 
-            colors = [(99, 3, 74), (62, 187, 204), (245, 82, 0), (239, 188, 6), (48, 107, 172)]  # Different motif colors
+        colors = [(0.5, 0, 0.3), (0.2, 0.7, 0.8), (1, 0.3, 0), (0.9, 0.7, 0.1), (0.2, 0.4, 0.8)]  # Different motif colors
 
-            for i, (header, seq) in enumerate(self.sequences.items()):
-                ctx.set_source_rgb(0, 0, 0)  # Black for sequence line
-                ctx.move_to(50, y_offset + (i * 100))
-                ctx.line_to(950, y_offset + (i * 100))
-                ctx.stroke()
+        for i, (header, seq) in enumerate(self.sequence.items()):
+            ctx.set_source_rgb(0, 0, 0)  # Black for sequence line
+            ctx.move_to(50, y_offset + (i * 100))
+            ctx.line_to(950, y_offset + (i * 100))
+            ctx.stroke()
 
-                motif_positions = self.find_motif_positions(seq, self.motifs)
+            motif_positions = self.compare_motifs(seq, self.motifs)
 
-                for idx, (start, end) in enumerate(motif_positions):
-                    ctx.set_source_rgb(*colors[idx % len(colors)])
+            for idx, (motif, positions) in enumerate(motif_positions.items()):
+                ctx.set_source_rgb(*colors[idx % len(colors)])
+                for start, end in positions:
                     box_start = 50 + (900 * start / len(seq))
                     box_end = 50 + (900 * end / len(seq))
                     ctx.rectangle(box_start, y_offset + (i * 100) - 5, box_end - box_start, 10)
                     ctx.fill()
 
-                ctx.set_source_rgb(0, 0, 0)
-                ctx.move_to(10, y_offset + (i * 100))
-                ctx.show_text(header)
+            ctx.set_source_rgb(0, 0, 0)
+            ctx.move_to(10, y_offset + (i * 100))
+            ctx.show_text(header)
 
-            surface.write_to_png(output_file)
-            print(f"Visualization saved as {output_file}")
+        surface.write_to_png(output_file)
+        print(f"Visualization saved as {output_file}")
 
 
+#Read and process the FASTA file
+fasta_obj = InputFastaFile(args.f)
+sequences = fasta_obj.oneline_fasta_list()  # Dictionary of {header: sequence}
 
-    # def __init__(self, intron_or_exon)
-        
-         
+#Read and expand motifs
+motif_obj = InputMotifsFile(args.m)
+all_motifs = motif_obj.parse_motifs_file()
 
-    # def cairo_drawing(self, length, motif_locations):
-    #    colors = [(99, 3, 74), (62, 187, 204), (245, 82, 0), (239, 188, 6), (48, 107, 172)]
-    #    WIDTH, HEIGHT = 1000, 5000
+# Expand ambiguous motifs
+expanded_motifs = []
+for motif in all_motifs:
+    expanded_motifs.extend(motif_obj.expand_motifs(motif))
 
-    #     surface = cairo.ImageSurface (cairo.FORMAT_RGB24, WIDTH, HEIGHT)
-    #     ctx = cairo.Context (surface)
+#find introns/exons and motif positions
+seqs_objects = {}  # Store results per sequence
 
-    #     ctx.scale (WIDTH, HEIGHT) # Normalizing the canvas
+for header, sequence in sequences.items():
+    roi = RegionOfInterest()
+    roi.find_introns_exons(sequence)
+    motif_positions = roi.compare_motifs(sequence, expanded_motifs)
+    seqs_objects[header] = roi  # Store results
 
-    #     ctx.set_line_width(5)
-    #     ctx.move_to(100, 100)
-    #     ctx.line_to(self.length, 100)
-    #     ctx.stroke()
-
-        
-    #     ctx.rectangle(100, 100, 50, 50)  # parameters are x, y, width, height
-    #     ctx.set_source_rgb(0, 0, 1)
-    #     ctx.fill()
-
-    #     ctx.rectangle (0, 0, 1, 1) # Rectangle(x0, y0, x1, y1)
-    #     ctx.set_source (pat)
-    #     ctx.fill ()
-
-    #     ctx.translate (0.1, 0.1) # Changing the current transformation matrix
-
-    #     ctx.move_to (0, 0)
-        
-
-    #     ctx.set_source_rgb (0.3, 0.2, 0.5) # Solid color
-    #     ctx.set_line_width (0.02)
-    #     ctx.stroke ()
-
-    #     surface.write_to_png ("Figure_1.png") # Output to PNG
+# Step 4: Draw the visualization
+drawing = Drawing(expanded_motifs)  
+drawing.sequences = sequences  # Attach sequences for drawing
+drawing.motifs = expanded_motifs  # Attach motifs for visualization
+output_file = fasta_file.rsplit(".", 1)[0] + ".png"  # Match input prefix
+drawing.draw_visualization(output_file)
