@@ -5,8 +5,8 @@ import cairo
 
 def get_args():
     parser = argparse.ArgumentParser(description="Motif Marking Visualization")
-    parser.add_argument('-f', type=str, help='Input FASTA file', default='/Users/carlyhamilton/bioinfo/Bi625/motif_mark/Figure_1.fasta')
-    parser.add_argument('-m', type=str, help='Input motifs file', default='/Users/carlyhamilton/bioinfo/Bi625/motif_mark/Fig_1_motifs.txt')
+    parser.add_argument('-f', type=str, help='Input FASTA file', required = True)
+    parser.add_argument('-m', type=str, help='Input motifs file', required = True)
     return parser.parse_args()
 args = get_args()
 
@@ -145,7 +145,6 @@ class Motif():
     def __init__(self,motifseq):
         '''Creates a motif object'''
         self.motif = motifseq
-        self.ambiguous_nts = None
 
     def nucleotide_notation(self):
         '''Generates a dictionary where keys = all possible ambiguous bases, and values = bases represented by that ambiguous base'''
