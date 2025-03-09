@@ -91,9 +91,9 @@ class RegionOfInterest():
         self.chrom = chrom
         self.start_pos = start_pos
         self.end_pos = end_pos
-        self.seqtype = None
+        self.type_of_seq = None
         self.introns = None
-        self.exon = None
+        self.exons = None
         self.motif_positions = None
 
     ##Methods##
@@ -110,7 +110,7 @@ class RegionOfInterest():
         self.exon_end = exon_end
     def exon_obj(self):
         '''generate a new object of the exon class to save as an attribute attached to region of interest'''
-        self.exon = Exon(self.sequence[self.exon_start:self.exon_end])
+        self.exons = Exon(self.sequence[self.exon_start:self.exon_end])
 
     def intron_obj(self):
         '''generate intron objects from locations where exons are not present'''
@@ -164,12 +164,12 @@ class Drawing():
 
     ##Methods##
     def draw_visualization(self):
-        """Uses PyCairo to draw motifs on sequences and save as PNG."""
-        number_drawings = len(self.to_draw)
-        height_img = (number_drawings+1) * 200
+        """Uses PyCairo to draw motifs on sequences and save as PNG.""" 
         lengths = [len(seqs.sequence) for seqs in self.to_draw]
         longest_seq = max(lengths)
         width_img = longest_seq + 600
+        number_drawings = len(self.to_draw)
+        height_img = (number_drawings+1) * 180
         WIDTH, HEIGHT = width_img, height_img
         
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, WIDTH, HEIGHT)
@@ -181,6 +181,7 @@ class Drawing():
         for i, seq in enumerate(self.to_draw):
             sequence_len = len(seq.sequence)
             ctx.set_line_width(4)
+            ctx.set_line_cap(cairo.LINE_CAP_ROUND)
             ctx.set_source_rgb(0,0,0)
             ctx.move_to(100,(200 * (i+1)))
             ctx.line_to(sequence_len + 100, (200 * (i+1)))
@@ -192,9 +193,9 @@ class Drawing():
             exon_end = seq.exon_end
             exonlength = exon_end - exon_start
 
-            #exon box dimensions, colors, etc.
+            #exons box dimensions, colors, etc.
             ctx.set_source_rgb(0.18, 0.40, 0.64) #18, 40, 64
-            ctx.rectangle(float(exon_start + 100), 175*(i+1)+(25*i), float(exonlength), 50)        
+            ctx.rectangle((exon_start + 100), 174*(i+1)+(28*i), (exonlength), 40)        
             ctx.fill()
         
         #draw motifs, color code by motif
@@ -209,7 +210,7 @@ class Drawing():
                 for location in motifs[motif]:
                     motif_start = location[1][0]
                     motif_end = location[1][1]
-                    ctx.rectangle(float(motif_start + 100), 175 * (i+1)+(25*i), float(motif_end - motif_start), 50)        
+                    ctx.rectangle((motif_start + 100), 174 * (i+1)+(28*i), (motif_end - motif_start), 40)        
                     ctx.fill()
 
         #label each sequence with gene name, start and end position, and chromosome
@@ -223,26 +224,31 @@ class Drawing():
 
             ctx.set_source_rgb(0, 0, 0)
             ctx.set_font_size(25)
-            ctx.select_font_face("Arial",cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+            ctx.select_font_face("Arial",cairo.FONT_SLANT_NORMAL)
             ctx.move_to(100,150*(i+1)+(50*i))
             ctx.show_text(f"{gene_name} chr{chrom}:{start_pos} - {end_pos}")
             ctx.stroke()
 
-        #make key for motifs present
-        ctx.set_source_rgb(0.713, 0.886, 0.886) #182, 226, 226
-        ctx.rectangle(float(longest_seq+200), 335, 300, 260)        
-        ctx.fill()
+        output_filename = fasta_file[:-6]
+        #title for motif mark image
+        ctx.set_source_rgb(0,0,0)
+        ctx.set_font_size(35)
+        ctx.select_font_face("Arial", cairo.FONT_SLANT_NORMAL)
+        ctx.move_to(75, 75)
+        ctx.show_text(f"Motifs Present in {output_filename} Genes of Interest")
+
         #title for legend
         ctx.set_source_rgb(0,0,0)
         ctx.set_font_size(28)
-        ctx.select_font_face("Arial",cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-        ctx.move_to(float(longest_seq+295),385)
+        ctx.select_font_face("Arial",cairo.FONT_SLANT_NORMAL)
+        ctx.move_to((longest_seq+295),385)
         ctx.show_text("MOTIFS")
         #underline "MOTIFS" legend title
         ctx.set_line_width(2)
+        ctx.set_line_cap(cairo.LINE_CAP_ROUND)
         ctx.set_source_rgb(0,0,0)
-        ctx.move_to(float(longest_seq+295), 395)
-        ctx.line_to(float(longest_seq+400), 395)
+        ctx.move_to((longest_seq+295), 395)
+        ctx.line_to((longest_seq+400), 395)
         ctx.stroke()
 
         #draw color coded motif boxes
@@ -253,19 +259,18 @@ class Drawing():
 
                 #draw box for each motif within the key
                 ctx.set_source_rgb(colors[j][0], colors[j][1], colors[j][2])
-                ctx.rectangle(float(longest_seq+220), 365+((j+1)*45), float(30), 30)        
+                ctx.rectangle((longest_seq+220), 365+((j+1)*45), 30, 30)        
                 ctx.fill()
 
                 #draw text for label
                 ctx.set_source_rgb(0,0,0)
                 ctx.set_font_size(24)
                 ctx.select_font_face("Arial",cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-                ctx.move_to(float(longest_seq+280), 390+((j+1)*45))
+                ctx.move_to((longest_seq+280), 390+((j+1)*45))
                 ctx.show_text(f"{motif.upper()}")      
             break
 
         #write to png output
-        output_filename = fasta_file[:-6]
         surface.write_to_png(f"{output_filename}.png")
 
 
