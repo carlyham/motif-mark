@@ -26,50 +26,49 @@ class ParseInputFile:
             self.file_type = "fasta"
         elif self.file.endswith(".txt") == True:
             self.file_type = "motif"
+
     def parse_fasta_file(self):
-        """Convert multi-line FASTA sequences into a dictionary with gene names as keys and 
-        values as a list containing the sequence, start and end position, and strand."""
+        """Convert multi-line FASTA sequences into a dictionary with gene names as keys 
+    and values as a list containing the sequence, start and end position, and strand."""
         if self.file_type == "fasta":
             with open(self.file, "r") as fin:
                 sequence_dict = {}
                 header = None
                 seqs = []
+
                 for line in fin:
-                    line = line.strip()             
-                    if line.startswith(">") == True and header == None:  # Header line
+                    line = line.strip() 
+                    # process new header line
+                    if line.startswith(">"):
+                        if header is not None:
+                            gene_name = header[0][1:]
+                            location_full = header[1].split(":")
+                            chrom = location_full[0]
+                            location = location_full[1].split("-")
+                            start_pos = location[0]
+                            end_pos = location[1]
+                            # add seq lines into a single sequence
+                            seqs = "".join(seqs)
+                            sequence_dict[gene_name] = [seqs, (chrom, start_pos, end_pos)]
+                            # empty seqs to continue looping
+                            seqs = []
+                        # add new header to header variable
                         header = line.split()
-                    elif line.startswith(">") != True:
+                    # add seq lines to seqs list
+                    else:
                         seqs.append(line)
-                    elif line.startswith(">") == True and header != None:
-                        gene_name = header[0][1:]
-                        location_full = header[1].split(":")
-                        chrom = location_full[0]
-                        location = location_full[1].split("-")
-                        start_pos = location[0]
-                        end_pos = location[1]
-                        #join fasta sequence lines into one sequence
-                        seqs = "".join(seqs)
-                        #add fasta entry to dictionary
-                        sequence_dict[gene_name] = [seqs, (chrom, start_pos, end_pos)]
+                # process the last entry after the loop
+                if header is not None:
+                    gene_name = header[0][1:]
+                    location_full = header[1].split(":")
+                    chrom = location_full[0]
+                    location = location_full[1].split("-")
+                    start_pos = location[0]
+                    end_pos = location[1]
+                    seqs = "".join(seqs)
+                    sequence_dict[gene_name] = [seqs, (chrom, start_pos, end_pos)]
+        return sequence_dict
 
-                        #clear the seqs list after creating addition to dictionary
-                        seqs = []
-                        header = header = line.split()
-
-                gene_name = header[0][1:]
-                location_full = header[1].split(":")
-                chrom = location_full[0]
-                location = location_full[1].split("-")
-                start_pos = location[0]
-                end_pos = location[1]
-                #join fasta sequence lines into one sequence
-                seqs = "".join(seqs)
-                #add fasta entry to dictionary
-                sequence_dict[gene_name] = [seqs, (chrom, start_pos, end_pos)]
-                #clear the seqs list after creating addition to dictionary
-                seqs = []
-                header = header = line.split()
-            return(sequence_dict)
 
     def parse_motif_file(self):
         '''Take text file containing motifs into a list'''
@@ -120,26 +119,43 @@ class RegionOfInterest():
         self.introns =  introns
 
     def compare_motifs(self, motifs_list):
-        '''Takes in a list of motifs and finds the locations of motifs in the ROI'''
+        '''Takes a list of motifs and finds the locations of motifs in the sequence'''
         motif_positions = {}
+        # Loop through each motif object
         for motif_obj in motifs_list:
-            sequence = self.sequence
-            motif_positions[motif_obj.motif] = []
-            for pos in range(len(sequence)):
-                slide = sequence[pos:(pos+len(motif_obj.motif))]
-                count = 0
-                for i, locus in enumerate(slide):
-                    if motif_obj.motif[i] == locus or motif_obj.motif[i].lower() == locus or motif_obj.motif[i].upper() == locus:
-                        count += 1
-                    elif motif_obj.motif[i] in motif_obj.nuc_notation_dict and locus in motif_obj.nuc_notation_dict[motif_obj.motif[i]]:
-                        count += 1
-                if count == len(motif_obj.motif):
-                    motif_positions[motif_obj.motif].append((slide, (pos, pos+len(motif_obj.motif))))
+            motif = motif_obj.motif
+            motif_positions[motif] = []
+            
+            # Slide through the sequence
+            for pos in range(len(self.sequence) - len(motif) + 1):
+                slide = self.sequence[pos:(pos+len(motif))]
+                is_match = True
+
+                # Compare each base
+                for i in range(len(motif)):
+                    motif_base = motif[i]
+                    seq_base = slide[i]
+                    # Handle exact or case-insensitive matches
+                    if motif_base.upper() == seq_base.upper():
+                        continue
+                    # Handle ambiguous nucleotide matches
+                    elif motif_base in motif_obj.nuc_notation_dict:
+                        if seq_base not in motif_obj.nuc_notation_dict[motif_base]:
+                            is_match = False
+                            break
+                    else:
+                        is_match = False
+                        break
+                # If a full match is found, add it to the list
+                if is_match:
+                    motif_positions[motif].append((slide, (pos, pos+len(motif))))
         self.motif_positions = motif_positions
+
 
 class Exon():
     def __init__(self, sequence):
         self.sequence = sequence       
+
 
 class Motif():
     def __init__(self,motifseq):
@@ -149,11 +165,11 @@ class Motif():
     def nucleotide_notation(self):
         '''Generates a dictionary where keys = all possible ambiguous bases, and values = bases represented by that ambiguous base'''
         #Nucleic acid notation dictionary including DNA and RNA bases
-        na_notation = { "W":("A","T","a","t"),"w":("A","T","a","t"),"S":("C","G","c","g"), "s":("C","G","c","g"),"Y":("C","T","c", "t"), "y":("c","t","C","T"),
-        "M":("A","C","a","c"),"m":("A","C","a","c"),"K":("G","T","g","t"),"k":("G","T","g","t"), "R":("A","G","a","g"),"r":("A","G","a","g"), "B":("C","G","T","c","g","t"),"b":("C","G","T","c","g","t"),
-        "D":("A","G","T","a","g","t"),"d":("A","G","T","a","g","t"), "H":("A","C","T","a","c","t"),"h":("A","C","T","a","c","t"), "V":("A","C","G","a","c","g"), "v":("A","C","G","a","c","g"), 
-        "N":("A","C","G","T","a","c","g","t"),"n":("A","C","G","T","a","c","g","t"), 
-        "U":("U","T","u","t"), "u":("U","T","u","t")}
+        na_notation = { "W":("A","T","a","t"),"w":("A","T","a","t"), "S":("C","G","c","g"), "s":("C","G","c","g"),"M":("A","C","a","c"),"m":("A","C","a","c"),
+        "K":("G","T","g","t"),"k":("G","T","g","t"), "N":("A","C","G","T","a","c","g","t"),"n":("A","C","G","T","a","c","g","t"),"R":("A","G","a","g"),"r":("A","G","a","g"),
+        "Y":("C","T","c", "t"), "y":("c","t","C","T"), "B":("C","G","T","c","g","t"), "b":("C","G","T","c","g","t"),
+        "D":("A","G","T","a","g","t"),"d":("A","G","T","a","g","t"), "H":("A","C","T","a","c","t"),"h":("A","C","T","a","c","t"), 
+        "V":("A","C","G","a","c","g"), "v":("A","C","G","a","c","g"), "U":("U","T","u","t"), "u":("U","T","u","t")}
         self.nuc_notation_dict = na_notation
 
 
